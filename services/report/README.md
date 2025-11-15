@@ -26,6 +26,6 @@ Obs: Este é um exemplo de como pode ser criado o serviço de report, sinta-se a
         "number": "13",
         "neighborhood": "Bairro Tal",
         "city": "Maceió",
-        "state": "Alagoas"
+        "state": "AL"
     }
 }
