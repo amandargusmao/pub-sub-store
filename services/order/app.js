@@ -13,36 +13,36 @@ function isValidOrder(orderData) {
     return true
 }
 
-async function processMessage(msg) {
-    const orderData = JSON.parse(msg.content)
-    try {
-        if(isValidOrder(orderData)) {
-            await (await RabbitMQService.getInstance()).send('contact', { 
-                "clientFullName": orderData.name,
-                "to": orderData.email,
-                "subject": "Pedido Aprovado",
-                "text": `${orderData.name}, seu pedido de disco de vinil acaba de ser aprovado, e esta sendo preparado para entrega!`,
-            })
+const RabbitMQService = require('./rabbitmq-service');
 
-            await (await RabbitMQService.getInstance()).send('shipping', orderData)
-            console.log(`✔ ORDER APPROVED`)
-        } else {
-            await (await RabbitMQService.getInstance()).send('contact', { 
-                "clientFullName": orderData.name,
-                "to": orderData.email,
-                "subject": "Pedido Reprovado",
-                "text": `${orderData.name}, seus dados não foram suficientes para realizar a compra :( por favor tente novamente!`,
-            })
-            console.log(`X ORDER REJECTED`)
-        }
-    } catch (error) {
-        console.log(`X ERROR TO PROCESS: ${error.response}`)
+// Variável para armazenar a contagem de produtos
+const salesReport = {}; 
+
+async function processMessage(msg) {
+    const orderData = JSON.parse(msg.content);
+
+    // 1. Lógica do Relatório
+    const productName = orderData.productName;
+    salesReport[productName] = (salesReport[productName] || 0) + 1;
+
+    // 2. Imprimir o Relatório
+    console.log(`\n--- Venda Processada ---`);
+    console.log(`Pedido de: ${orderData.name}`);
+    console.log(`Produto: ${productName}`);
+    console.log(`\n--- Relatório de Vendas (Acumulado) ---`);
+    for (const product in salesReport) {
+        console.log(`${product} = ${salesReport[product]} vendas`);
     }
+    console.log(`--------------------------\n`);
 }
 
 async function consume() {
-    console.log(`SUCCESSFULLY SUBSCRIBED TO QUEUE: ${process.env.RABBITMQ_QUEUE_NAME}`)
-    await (await RabbitMQService.getInstance()).consume(process.env.RABBITMQ_QUEUE_NAME, (msg) => {processMessage(msg)})
-} 
+    console.log(`✔ [REPORT SERVICE] Aguardando mensagens na fila: report`);
+    const rabbitMQService = await RabbitMQService.getInstance();
+    
+    // **A FILA CORRETA É 'report'**
+    await rabbitMQService.consume('report', processMessage);
+}
 
-consume()
+// Inicia o consumidor
+consume();
